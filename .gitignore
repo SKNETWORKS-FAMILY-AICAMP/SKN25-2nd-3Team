@@ -28,6 +28,8 @@ outputs/*.pth
 # ================================
 # 데이터 (MySQL로 공유)
 # ================================
+data/*.csv
+data/*.pkl
 data/raw/*.csv
 data/raw/*.pkl
 
