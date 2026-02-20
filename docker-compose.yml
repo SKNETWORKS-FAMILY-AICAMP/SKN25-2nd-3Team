@@ -1,0 +1,25 @@
+services:
+  jupyter:
+    build:
+      context: .
+      dockerfile: docker_env/Dockerfile
+    ports:
+      - "9000:9000"
+    volumes:
+      - .:/home/ict/work
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: docker_env/Dockerfile
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/home/ict/work
+    env_file:
+      - .env
+    command: streamlit run src/app.py --server.port 8501 --server.address 0.0.0.0
+    restart: unless-stopped
