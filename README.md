@@ -15,14 +15,10 @@ OULAD 데이터셋으로 수강 이탈 여부를 예측하는 이진 분류 팀 
 ## 서버 세팅
 
 ```bash
-# .env 파일 생성
-cat > .env << EOF
-MYSQL_ROOT_PASSWORD=root1234
-MYSQL_DATABASE=dropout
-MYSQL_USER=dropout_user
-MYSQL_PASSWORD=dropout1234
-EOF
+# setup.sh를 받아서 실행 (Tailscale + Docker + .env 자동 설정)
+bash setup.sh
 
+# 이미 환경이 구성된 경우
 docker compose -f docker-compose.server.yml up -d
 ```
 
