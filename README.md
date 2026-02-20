@@ -34,4 +34,4 @@ docker compose -f docker-compose.server.yml up -d
 |---|---|
 | Jupyter | http://localhost:9000 |
 | Streamlit | http://localhost:8501 |
-| MLflow | http://서버-IP:5000 |
+| MLflow | http://서버-IP:5001 |
