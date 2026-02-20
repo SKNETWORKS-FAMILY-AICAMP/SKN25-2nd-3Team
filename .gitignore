@@ -49,6 +49,7 @@ mlruns/
 setup.sh
 SETUP.md
 PROJECT_PLAN.md
+WORKFLOW.md
 
 # ================================
 # Docker
