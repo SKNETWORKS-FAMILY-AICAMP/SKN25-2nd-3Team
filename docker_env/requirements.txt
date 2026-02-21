@@ -14,7 +14,6 @@ tqdm==4.66.5
 
 scikit-learn==1.5.1
 xgboost==3.1.3
-pytorch-tabnet==4.1.0
 optuna==4.7.0
 optuna-integration
 shap
@@ -26,5 +25,3 @@ PyMySQL==1.1.1
 SQLAlchemy==2.0.32
 python-dotenv
 
---extra-index-url https://download.pytorch.org/whl/cu118
-torch
