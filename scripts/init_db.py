@@ -22,32 +22,38 @@ engine = create_engine(
 # ================================
 # 테이블 생성
 # ================================
+DROP_STUDENTS    = "DROP TABLE IF EXISTS students;"
+DROP_PREDICTIONS = "DROP TABLE IF EXISTS predictions;"
+DROP_CLUSTERS    = "DROP TABLE IF EXISTS clusters;"
+
 CREATE_STUDENTS = """
-CREATE TABLE IF NOT EXISTS students (
-    id_student          INT,
-    gender              VARCHAR(10),
-    region              VARCHAR(100),
-    highest_education   VARCHAR(100),
-    imd_band            VARCHAR(20),
-    age_band            VARCHAR(20),
-    num_of_prev_attempts INT,
-    studied_credits     INT,
-    disability          VARCHAR(5),
-    total_clicks        FLOAT,
-    active_days         FLOAT,
-    unique_resources    FLOAT,
-    num_forum           FLOAT,
-    num_quiz            FLOAT,
-    avg_score           FLOAT,
-    num_assess_attempted FLOAT,
-    total_weight        FLOAT,
+CREATE TABLE students (
+    id_student                 INT,
+    code_module                VARCHAR(10),
+    code_presentation          VARCHAR(20),
+    gender                     VARCHAR(10),
+    region                     VARCHAR(100),
+    highest_education          VARCHAR(100),
+    imd_band                   VARCHAR(20),
+    age_band                   VARCHAR(20),
+    num_of_prev_attempts       INT,
+    studied_credits            INT,
+    disability                 VARCHAR(5),
+    total_clicks               FLOAT,
+    active_days                FLOAT,
+    unique_resources           FLOAT,
+    num_forum                  FLOAT,
+    num_quiz                   FLOAT,
+    avg_score                  FLOAT,
+    num_assess_attempted       FLOAT,
+    total_weight               FLOAT,
     module_presentation_length INT,
-    dropout             TINYINT
+    dropout                    TINYINT
 );
 """
 
 CREATE_PREDICTIONS = """
-CREATE TABLE IF NOT EXISTS predictions (
+CREATE TABLE predictions (
     id_student  INT,
     model_name  VARCHAR(50),
     predicted   TINYINT,
@@ -57,7 +63,7 @@ CREATE TABLE IF NOT EXISTS predictions (
 """
 
 CREATE_CLUSTERS = """
-CREATE TABLE IF NOT EXISTS clusters (
+CREATE TABLE clusters (
     id_student   INT,
     cluster_id   INT,
     dropout_rate FLOAT
@@ -65,6 +71,9 @@ CREATE TABLE IF NOT EXISTS clusters (
 """
 
 with engine.connect() as conn:
+    conn.execute(text(DROP_STUDENTS))
+    conn.execute(text(DROP_PREDICTIONS))
+    conn.execute(text(DROP_CLUSTERS))
     conn.execute(text(CREATE_STUDENTS))
     conn.execute(text(CREATE_PREDICTIONS))
     conn.execute(text(CREATE_CLUSTERS))
@@ -81,7 +90,8 @@ df["dropout"] = (df["final_result"] == "Withdrawn").astype(int)
 
 # students 테이블 컬럼만 선택
 students_cols = [
-    "id_student", "gender", "region", "highest_education", "imd_band",
+    "id_student", "code_module", "code_presentation",
+    "gender", "region", "highest_education", "imd_band",
     "age_band", "num_of_prev_attempts", "studied_credits", "disability",
     "total_clicks", "active_days", "unique_resources", "num_forum",
     "num_quiz", "avg_score", "num_assess_attempted", "total_weight",
@@ -89,7 +99,7 @@ students_cols = [
 ]
 df_students = df[students_cols]
 
-df_students.to_sql("students", engine, if_exists="replace", index=False)
+df_students.to_sql("students", engine, if_exists="append", index=False)
 print(f"데이터 적재 완료: {len(df_students)}행")
 
 # 확인
