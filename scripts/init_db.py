@@ -22,9 +22,11 @@ engine = create_engine(
 # ================================
 # 테이블 생성
 # ================================
+DROP_STUDENT_VLE = "DROP TABLE IF EXISTS studentVle;"
 DROP_STUDENTS    = "DROP TABLE IF EXISTS students;"
 DROP_PREDICTIONS = "DROP TABLE IF EXISTS predictions;"
 DROP_CLUSTERS    = "DROP TABLE IF EXISTS clusters;"
+DROP_VLE         = "DROP TABLE IF EXISTS vle;"
 
 CREATE_STUDENTS = """
 CREATE TABLE students (
@@ -70,13 +72,39 @@ CREATE TABLE clusters (
 );
 """
 
+CREATE_VLE = """
+CREATE TABLE vle (
+    id_site           INT,
+    code_module       VARCHAR(10),
+    code_presentation VARCHAR(20),
+    activity_type     VARCHAR(45),
+    week_from         INT,
+    week_to           INT
+);
+"""
+
+CREATE_STUDENT_VLE = """
+CREATE TABLE studentVle (
+    code_module       VARCHAR(10),
+    code_presentation VARCHAR(20),
+    id_student        INT,
+    id_site           INT,
+    date              INT,
+    sum_click         INT
+);
+"""
+
 with engine.connect() as conn:
+    conn.execute(text(DROP_STUDENT_VLE))
     conn.execute(text(DROP_STUDENTS))
     conn.execute(text(DROP_PREDICTIONS))
     conn.execute(text(DROP_CLUSTERS))
+    conn.execute(text(DROP_VLE))
     conn.execute(text(CREATE_STUDENTS))
     conn.execute(text(CREATE_PREDICTIONS))
     conn.execute(text(CREATE_CLUSTERS))
+    conn.execute(text(CREATE_VLE))
+    conn.execute(text(CREATE_STUDENT_VLE))
     conn.commit()
     print("테이블 생성 완료")
 
@@ -107,11 +135,26 @@ df_students["highest_education"] = df_students["highest_education"].replace(
 )
 
 df_students.to_sql("students", engine, if_exists="append", index=False)
-print(f"데이터 적재 완료: {len(df_students)}행")
+print(f"students 적재 완료: {len(df_students)}행")
+
+# vle
+df_vle = pd.read_csv("data/vle.csv")
+df_vle.to_sql("vle", engine, if_exists="append", index=False)
+print(f"vle 적재 완료: {len(df_vle)}행")
+
+# studentVle (청크 처리)
+CHUNK = 50_000
+total = 0
+for chunk in pd.read_csv("data/studentVle.csv", chunksize=CHUNK):
+    chunk.to_sql("studentVle", engine, if_exists="append", index=False)
+    total += len(chunk)
+    print(f"  studentVle: {total:,}행 적재 중...", end="\r")
+print(f"\nstudentVle 적재 완료: {total:,}행")
 
 # 확인
 with engine.connect() as conn:
-    result = conn.execute(text("SELECT COUNT(*) FROM students"))
-    count = result.scalar()
+    count = conn.execute(text("SELECT COUNT(*) FROM students")).scalar()
     dropout_count = conn.execute(text("SELECT SUM(dropout) FROM students")).scalar()
-    print(f"students 테이블: {count}행 (이탈: {int(dropout_count)}명)")
+    print(f"students: {count}행 (이탈: {int(dropout_count)}명)")
+    print(f"vle: {conn.execute(text('SELECT COUNT(*) FROM vle')).scalar()}행")
+    print(f"studentVle: {conn.execute(text('SELECT COUNT(*) FROM studentVle')).scalar()}행")
