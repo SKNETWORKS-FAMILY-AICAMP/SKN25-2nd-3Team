@@ -24,8 +24,6 @@ engine = create_engine(
 # ================================
 DROP_STUDENT_VLE = "DROP TABLE IF EXISTS studentVle;"
 DROP_STUDENTS    = "DROP TABLE IF EXISTS students;"
-DROP_PREDICTIONS = "DROP TABLE IF EXISTS predictions;"
-DROP_CLUSTERS    = "DROP TABLE IF EXISTS clusters;"
 DROP_VLE         = "DROP TABLE IF EXISTS vle;"
 
 CREATE_STUDENTS = """
@@ -55,7 +53,7 @@ CREATE TABLE students (
 """
 
 CREATE_PREDICTIONS = """
-CREATE TABLE predictions (
+CREATE TABLE IF NOT EXISTS predictions (
     id_student  INT,
     model_name  VARCHAR(50),
     predicted   TINYINT,
@@ -65,7 +63,7 @@ CREATE TABLE predictions (
 """
 
 CREATE_CLUSTERS = """
-CREATE TABLE clusters (
+CREATE TABLE IF NOT EXISTS clusters (
     id_student   INT,
     cluster_id   INT,
     dropout_rate FLOAT
@@ -97,14 +95,12 @@ CREATE TABLE studentVle (
 with engine.connect() as conn:
     conn.execute(text(DROP_STUDENT_VLE))
     conn.execute(text(DROP_STUDENTS))
-    conn.execute(text(DROP_PREDICTIONS))
-    conn.execute(text(DROP_CLUSTERS))
     conn.execute(text(DROP_VLE))
     conn.execute(text(CREATE_STUDENTS))
-    conn.execute(text(CREATE_PREDICTIONS))
-    conn.execute(text(CREATE_CLUSTERS))
     conn.execute(text(CREATE_VLE))
     conn.execute(text(CREATE_STUDENT_VLE))
+    conn.execute(text(CREATE_PREDICTIONS))
+    conn.execute(text(CREATE_CLUSTERS))
     conn.commit()
     print("테이블 생성 완료")
 
