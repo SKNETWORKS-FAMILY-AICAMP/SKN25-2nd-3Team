@@ -52,6 +52,7 @@ mlruns/
 .env
 .env.*
 *.env
+settings.local.json
 setup.sh
 SETUP.md
 PROJECT_PLAN.md

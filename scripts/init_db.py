@@ -97,7 +97,14 @@ students_cols = [
     "num_quiz", "avg_score", "num_assess_attempted", "total_weight",
     "module_presentation_length", "dropout"
 ]
-df_students = df[students_cols]
+df_students = df[students_cols].copy()
+
+# 데이터 품질 수정
+df_students["imd_band"] = df_students["imd_band"].replace("10-20", "10-20%")  # % 누락
+df_students["imd_band"] = df_students["imd_band"].replace("0", None)           # 결측값
+df_students["highest_education"] = df_students["highest_education"].replace(
+    "No Formal quals", "No Formal Quals"
+)
 
 df_students.to_sql("students", engine, if_exists="append", index=False)
 print(f"데이터 적재 완료: {len(df_students)}행")
