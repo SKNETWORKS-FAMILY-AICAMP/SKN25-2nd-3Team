@@ -12,17 +12,13 @@ MySQL + MLflow + Streamlit + Docker Compose 구조로 운영됩니다.
 - 학습자 군집 분석 대시보드 (KMeans, 군집별 프로파일 해석)
 - MLflow 기반 실험 추적 + MySQL 예측 저장
 
-참고: 현재 UI는 **Light 모드 기준**으로 최적화되어 있습니다.
-
 ---
 
 ## ERD
 
 아래 이미지는 현재 코드 기준 최종 DB 구조입니다.
 
-![OULAD ERD](docs/images/erd_final.png)
-
-> 이미지 파일을 `docs/images/erd_final.png` 경로에 넣으면 README에서 바로 표시됩니다.
+<img width="933" height="1098" alt="Untitled" src="https://github.com/user-attachments/assets/e4c6e689-e185-4d09-852d-f73ed562c5b9" />
 
 ---
 
