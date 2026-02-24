@@ -62,6 +62,18 @@ CREATE TABLE IF NOT EXISTS predictions (
 );
 """
 
+CREATE_LIVE_PREDICTIONS = """
+CREATE TABLE IF NOT EXISTS live_predictions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id_student  INT NULL,
+    model_name  VARCHAR(50),
+    predicted   TINYINT,
+    probability FLOAT,
+    run_id      VARCHAR(100),
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+"""
+
 CREATE_CLUSTERS = """
 CREATE TABLE IF NOT EXISTS clusters (
     id_student   INT,
@@ -100,6 +112,7 @@ with engine.connect() as conn:
     conn.execute(text(CREATE_VLE))
     conn.execute(text(CREATE_STUDENT_VLE))
     conn.execute(text(CREATE_PREDICTIONS))
+    conn.execute(text(CREATE_LIVE_PREDICTIONS))
     conn.execute(text(CREATE_CLUSTERS))
     conn.commit()
     print("테이블 생성 완료")
