@@ -210,7 +210,45 @@ VALUE_DISPLAY_MAPS = {
     },
 }
 
-st.title("이탈 예측")
+st.markdown(
+    """
+    <style>
+    .block-container {padding-top: 1.4rem; padding-bottom: 1.5rem;}
+    .hero {
+        border-radius: 16px; padding: 18px 20px; margin-bottom: 14px;
+        background: linear-gradient(120deg, #1d4ed8 0%, #0ea5e9 55%, #14b8a6 100%);
+        color: #ffffff;
+    }
+    .hero h2 {margin: 0; font-size: 1.35rem;}
+    .hero p {margin: 8px 0 0 0; opacity: 0.95;}
+    .tip {
+        border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc;
+        padding: 10px 12px; margin-bottom: 10px;
+    }
+    .section-card {
+        border: 1px solid #e2e8f0; border-radius: 14px; background: #ffffff;
+        padding: 12px 14px; margin: 10px 0 14px 0;
+    }
+    .model-pill {
+        display: inline-block; border-radius: 999px; padding: 4px 10px;
+        font-size: 0.8rem; font-weight: 600; margin-top: 6px;
+        border: 1px solid #cbd5e1; background: #f8fafc;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <div class="hero">
+      <h2>학습자 이탈 예측</h2>
+      <p>모델별 실시간 예측과 저장된 예측 결과 분석을 한 화면에서 운영할 수 있습니다.</p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+st.caption("현재 UI는 Light 모드 기준으로 가독성과 색상 대비를 최적화했습니다.")
 
 
 @st.cache_data(ttl=300)
@@ -625,6 +663,18 @@ def normalize_model_name(model_name: str) -> str:
     return str(model_name)
 
 
+def model_color(model_name: str) -> str:
+    if model_name == "Random Forest":
+        return "#059669"
+    if model_name == "Logistic Regression":
+        return "#2563eb"
+    if model_name == "XGBoost":
+        return "#ea580c"
+    if model_name == "TabNet":
+        return "#7c3aed"
+    return "#334155"
+
+
 def save_live_prediction(model_name, id_student, pred, prob, run_id):
     engine = get_engine()
     df_save = pd.DataFrame(
@@ -1016,9 +1066,17 @@ def xgboost_inference_ui():
             st.success("예측 결과를 저장했습니다.")
 
 
-tab_infer, tab_analysis = st.tabs(["모델 추론", "모델 성능 분석"])
+tab_infer, tab_analysis = st.tabs(["실시간 예측", "예측 결과 분석"])
 
 with tab_infer:
+    st.markdown(
+        """
+        <div class="tip">
+          간소화 입력은 핵심 피처만 직접 입력하고, 나머지는 데이터 중앙값/최빈값으로 자동 보정합니다.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     try:
         df_students = load_students_for_inference()
     except Exception as e:
@@ -1029,7 +1087,12 @@ with tab_infer:
         "모델 선택",
         ["Random Forest", "Logistic Regression", "XGBoost"],
     )
-    st.caption("TabNet은 PyTorch 환경 의존성으로 인해 여기서는 제외되며, 아래 `모델 성능 분석` 탭에서 결과를 확인할 수 있습니다.")
+    chip_color = model_color(model_choice)
+    st.markdown(
+        f"<span class='model-pill' style='color:{chip_color}; border-color:{chip_color}33; background:{chip_color}14;'>선택 모델: {model_choice}</span>",
+        unsafe_allow_html=True,
+    )
+    st.caption("TabNet은 PyTorch 환경 의존성으로 인해 여기서는 제외되며, 아래 `예측 결과 분석` 탭에서 결과를 확인할 수 있습니다.")
 
     if model_choice == "Random Forest":
         try:
@@ -1050,6 +1113,14 @@ with tab_infer:
             st.error(f"XGBoost 추론 실패: {e}")
 
 with tab_analysis:
+    st.markdown(
+        """
+        <div class="tip">
+          모델별 예측 성능, 확률 분포, 그룹별 위험 비율을 비교해 운영 우선순위를 잡을 수 있습니다.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     try:
         df_pred = load_predictions()
     except Exception as e:
@@ -1074,18 +1145,28 @@ with tab_analysis:
     df = df_pred[df_pred["display_model"] == selected_model].copy()
 
     total = len(df)
+    if total == 0:
+        st.warning("선택한 모델의 예측 데이터가 없습니다.")
+        st.stop()
+
     predicted_dropout = int(df["predicted"].sum())
     actual_dropout = int(df["dropout"].sum()) if "dropout" in df.columns else None
     avg_prob = df["probability"].mean()
 
+    selected_color = model_color(selected_model)
+    st.markdown(
+        f"<span class='model-pill' style='color:{selected_color}; border-color:{selected_color}33; background:{selected_color}14;'>현재 분석 모델: {selected_model}</span>",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("전체 학생 수", f"{total:,}")
     c2.metric("예측 이탈", f"{predicted_dropout:,}", f"{predicted_dropout / total * 100:.1f}%")
     if actual_dropout is not None:
         c3.metric("실제 이탈", f"{actual_dropout:,}", f"{actual_dropout / total * 100:.1f}%")
     c4.metric("평균 이탈 확률", f"{avg_prob:.3f}")
-
-    st.divider()
+    st.markdown("</div>", unsafe_allow_html=True)
 
     if len(models) > 1:
         rows = []
@@ -1100,14 +1181,17 @@ with tab_analysis:
                         "모델": m,
                         "F1": f"{f1_score(y_true, y_pred):.4f}",
                         "AUC": f"{roc_auc_score(y_true, y_prob):.4f}",
-                        "Accuracy": f"{accuracy_score(y_true, y_pred):.4f}",
+                        "정확도": f"{accuracy_score(y_true, y_pred):.4f}",
                     }
                 )
         if rows:
+            st.markdown("<div class='section-card'>", unsafe_allow_html=True)
             st.subheader("모델별 성능 비교")
-            st.dataframe(pd.DataFrame(rows).set_index("모델"), use_container_width=True)
+            score_df = pd.DataFrame(rows).sort_values("AUC", ascending=False).set_index("모델")
+            st.dataframe(score_df, use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    st.divider()
+    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     st.subheader("예측 결과 시각화")
     ca, cb = st.columns(2)
     with ca:
@@ -1115,6 +1199,7 @@ with tab_analysis:
             df,
             x="probability",
             nbins=20,
+            color_discrete_sequence=[selected_color],
             labels={"probability": "이탈 확률", "count": "학생 수"},
             title="이탈 확률 분포",
         )
@@ -1133,13 +1218,16 @@ with tab_analysis:
             x="예측 결과",
             y="학생 수",
             text="학생 수",
+            color="예측 결과",
+            color_discrete_map={"유지 예측": "#0ea5e9", "이탈 예측": "#ef4444"},
             labels={"예측 결과": "예측 결과", "학생 수": "학생 수"},
             title="예측 결과 분포",
         )
         fig_pred.update_traces(textposition="outside")
         st.plotly_chart(fig_pred, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.divider()
+    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     st.subheader("그룹별 이탈 예측 비율")
     group_options = {
         "연령대": "age_band",
@@ -1176,9 +1264,12 @@ with tab_analysis:
             x=display_col,
             y="이탈 예측 비율(%)",
             text="이탈 예측 비율(%)",
+            color="이탈 예측 비율(%)",
+            color_continuous_scale=["#bfdbfe", "#3b82f6", "#1e3a8a"],
             labels={display_col: display_col, "이탈 예측 비율(%)": "이탈 예측 비율(%)"},
             title=f"{display_col}별 이탈 예측 비율",
         )
         fig_group.update_traces(textposition="outside")
         st.plotly_chart(fig_group, use_container_width=True)
         st.dataframe(group_df, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
