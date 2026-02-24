@@ -1,98 +1,142 @@
-# OULAD 이탈 예측
+# OULAD Dropout Analytics
 
-OULAD 데이터셋으로 수강 이탈 여부를 예측하는 이진 분류 팀 프로젝트.
-
-자세한 내용은 [PROJECT_PLAN.md](PROJECT_PLAN.md)를 참고하세요.
-
----
-
-## 팀원 세팅
-
-`setup.sh` 파일을 받아서 실행합니다. 자세한 내용은 [SETUP.md](SETUP.md)를 참고하세요.
+OULAD(Open University Learning Analytics Dataset) 기반 학습 이탈 예측 및 군집 분석 대시보드 프로젝트입니다.  
+MySQL + MLflow + Streamlit + Docker Compose 구조로 운영됩니다.
 
 ---
 
-## 서버 세팅
+## What This Repo Delivers
+
+- 이탈 예측 실시간 추론 (Logistic Regression, Random Forest, XGBoost)
+- 예측 결과 분석 대시보드 (모델별 성능/분포/그룹 비교)
+- 학습자 군집 분석 대시보드 (KMeans, 군집별 프로파일 해석)
+- MLflow 기반 실험 추적 + MySQL 예측 저장
+
+참고: 현재 UI는 **Light 모드 기준**으로 최적화되어 있습니다.
+
+---
+
+## ERD
+
+아래 이미지는 현재 코드 기준 최종 DB 구조입니다.
+
+![OULAD ERD](docs/images/erd_final.png)
+
+> 이미지 파일을 `docs/images/erd_final.png` 경로에 넣으면 README에서 바로 표시됩니다.
+
+---
+
+## Architecture
+
+```text
+Docker Compose
+├─ MySQL        :3307
+├─ MLflow       :5001
+├─ Jupyter      :9000
+└─ Streamlit    :8501
+```
+
+Streamlit app:
+- `src/app.py`
+- `src/pages/01_dropout_prediction.py`
+- `src/pages/02_clustering_analysis.py`
+
+---
+
+## Repository Structure
+
+```text
+src/
+├── app.py
+├── common_data.py
+├── models/
+│   ├── clustering.py
+│   ├── logistic.py
+│   ├── random_forest.py
+│   ├── tabnet.py
+│   └── xgboost.py
+└── pages/
+    ├── 01_dropout_prediction.py
+    └── 02_clustering_analysis.py
+
+scripts/
+└── init_db.py
+```
+
+---
+
+## Quick Start
+
+### 1) Environment
+
+`.env`에 DB/MLflow 접속 정보를 설정합니다.
+
+필수 변수 예시:
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `MLFLOW_TRACKING_URI`
+
+### 2) Run services
 
 ```bash
-# setup.sh를 받아서 실행 (Tailscale + Docker + .env 자동 설정)
-bash setup.sh
+docker compose up -d
+```
 
-# 이미 환경이 구성된 경우
-docker compose -f docker-compose.server.yml up -d
+### 3) Initialize DB (최초 1회)
+
+```bash
+python scripts/init_db.py
+```
+
+### 4) Access
+
+- Jupyter: `http://localhost:9000`
+- Streamlit: `http://localhost:8501`
+
+---
+
+## Model Training & Logging
+
+각 모델 스크립트 실행 시 학습 + MLflow 로깅 + `predictions` 테이블 적재를 수행합니다.
+
+```bash
+python src/models/logistic.py
+python src/models/random_forest.py
+python src/models/xgboost.py
+python src/models/tabnet.py
+python src/models/clustering.py
 ```
 
 ---
 
-## 접속 주소
+## Streamlit Pages
 
-| 서비스 | 주소 |
-|---|---|
-| Jupyter | http://localhost:9000 |
-| Streamlit | http://localhost:8501 |
-| MLflow | http://서버-IP:5001 |
+### 1) 이탈 예측
+
+- 실시간 추론: Logistic Regression / Random Forest / XGBoost
+- 입력 모드: 간소화 입력 / 전체 입력
+- 저장 옵션: `predictions` 테이블에 실시간 예측 저장 가능
+
+### 2) 군집 분석
+
+- 군집 KPI, 분포 시각화, 군집 프로파일 비교
+- 군집별 해석 카드(참여도/성취도/이탈 위험)
 
 ---
 
-## 브랜치 구조
+## Notes
 
-```
-main                  ← 발표/제출용 (건드리지 않음)
-└── dev               ← 통합용 (완성된 것만 merge)
-    ├── model/xgboost        ← 담당 1
-    ├── model/logistic       ← 담당 2
-    ├── model/random-forest  ← 담당 3
-    ├── model/tabnet         ← 담당 4
-    ├── analysis/clustering  ← 담당 5
-    ├── app/streamlit        ← Phase 3에서 완성
-    ├── infra/docker
-    ├── infra/mysql
-    └── infra/mlflow
-```
+- TabNet은 현재 실시간 추론 UI에서 제외되어 있으며, 학습/분석 파이프라인에서 사용합니다.
+- 분석 탭에서는 `model_name`을 정규화해 모델 중복 표기를 방지합니다.
 
-## 작업 방법
+---
 
-```bash
-# 1. 레포 클론
-git clone https://github.com/SKNETWORKS-FAMILY-AICAMP/SKN25-2nd-3Team.git
-cd SKN25-2nd-3Team
+## Docs
 
-# 2. 본인 브랜치로 이동 (예: 담당 1)
-git checkout model/xgboost
-
-# 3. 작업 후 커밋 & 푸시
-git add .
-git commit -m "feat: XGBoost 학습 및 MLflow 기록 추가"
-git push origin model/xgboost
-
-# 4. GitHub에서 PR 생성: 본인브랜치 → dev
-```
-
-### 커밋 컨벤션
-
-| 태그 | 용도 |
-|---|---|
-| `feat:` | 기능 추가 |
-| `fix:` | 버그 수정 |
-| `refactor:` | 코드 정리 (기능 변경 없음) |
-| `chore:` | 설정, Docker, 의존성 |
-| `docs:` | 문서, 주석 |
-| `data:` | 스키마, MySQL |
-
-```bash
-# 예시
-feat: XGBoost 학습 및 MLflow 기록 추가
-fix: logistic.py StandardScaler 누락 수정
-chore: Docker Compose MySQL 포트 수정
-data: predictions 테이블 스키마 추가
-```
-
-### PR 규칙
-
-| 경로 | 조건 |
-|---|---|
-| 본인브랜치 → `dev` | 담당자 외 1인 승인 필요 |
-| `dev` → `main` | 전원 승인 필요 |
-
-- PR 제목은 커밋 컨벤션 태그로 시작 (예: `feat: XGBoost 학습 추가`)
-- 리뷰 없이 직접 `dev`, `main`에 push 금지
+운영 문서(로컬 참고용):
+- `env/WORKFLOW.md`
+- `env/PROJECT_PLAN.md`
+- `env/SETUP.md`
