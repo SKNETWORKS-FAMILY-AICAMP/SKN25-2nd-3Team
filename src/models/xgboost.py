@@ -42,7 +42,7 @@ load_dotenv()
 # ================================
 # 상수
 # ================================
-EXPERIMENT = "xgboost_stu_vle"
+EXPERIMENT = "xgboost_stu_vle_v2"
 MODEL_NAME = "xgboost_dropout"
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "outputs", "xgboost_model.pkl")
 RANDOM_STATE = 42

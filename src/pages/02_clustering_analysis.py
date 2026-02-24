@@ -123,7 +123,7 @@ c2.metric("군집 수", f"{summary['군집'].nunique()}")
 c3.metric("평균 이탈률", f"{avg_dropout_rate:.1f}%")
 c4.metric("관리 우선 군집", top_risk_cluster)
 
-st.dataframe(summary, use_container_width=True)
+st.dataframe(summary, width="stretch")
 
 st.divider()
 
@@ -161,7 +161,7 @@ with col1:
     )
     fig_pie.update_traces(textposition="inside", textinfo="percent+label")
     fig_pie.update_layout(showlegend=False)
-    st.plotly_chart(fig_pie, use_container_width=True)
+    st.plotly_chart(fig_pie, width="stretch")
 
 with col2:
     st.subheader("군집별 성취도/참여도")
@@ -184,7 +184,7 @@ with col2:
         yaxis2=dict(title="평균 활동일수", overlaying="y", side="right", rangemode="tozero"),
         legend_title="지표",
     )
-    st.plotly_chart(fig_bar, use_container_width=True)
+    st.plotly_chart(fig_bar, width="stretch")
 
 st.divider()
 
@@ -203,7 +203,7 @@ fig_scatter = px.scatter(
         "dropout": "실제 이탈 여부",
     },
 )
-st.plotly_chart(fig_scatter, use_container_width=True)
+st.plotly_chart(fig_scatter, width="stretch")
 
 st.divider()
 
@@ -230,4 +230,4 @@ fig_radar.update_layout(
     height=450,
     legend_title="군집",
 )
-st.plotly_chart(fig_radar, use_container_width=True)
+st.plotly_chart(fig_radar, width="stretch")

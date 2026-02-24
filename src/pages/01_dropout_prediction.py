@@ -15,9 +15,8 @@ if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
 from common_data import get_engine, load_predictions
+from models.logistic import EXPERIMENT as LOGISTIC_EXPERIMENT
 from models.random_forest import EXPERIMENT as RF_EXPERIMENT, preprocess as rf_preprocess
-
-LOGISTIC_EXPERIMENT = "student_dropout_logistic"
 
 FEATURE_COLS = [
     "code_module",
@@ -259,31 +258,49 @@ def load_students_for_inference():
 
 @st.cache_resource
 def get_rf_model_mlflow():
-    from models.random_forest import MODEL_PATH
-    import joblib
-
     mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
     client = mlflow.tracking.MlflowClient()
     exp = client.get_experiment_by_name(RF_EXPERIMENT)
     if exp is None:
         raise FileNotFoundError(f"MLflow 실험 '{RF_EXPERIMENT}' 없음")
 
-    runs = client.search_runs([exp.experiment_id], order_by=["attributes.start_time DESC"], max_results=1)
+    runs = client.search_runs(
+        [exp.experiment_id],
+        filter_string="attributes.status = 'FINISHED'",
+        order_by=["attributes.start_time DESC"],
+        max_results=20,
+    )
     if not runs:
         raise FileNotFoundError("학습된 Random Forest 모델이 없습니다.")
 
-    run_id = runs[0].info.run_id
-    if os.path.exists(MODEL_PATH):
-        model = joblib.load(MODEL_PATH)
-    else:
-        model = mlflow.sklearn.load_model(f"runs:/{run_id}/model")
-    return model, run_id
+    last_error = None
+    for run in runs:
+        run_id = run.info.run_id
+        if not str(run.info.artifact_uri).startswith("mlflow-artifacts:"):
+            continue
+        try:
+            arts = client.list_artifacts(run_id)
+            if not arts:
+                continue
+        except Exception:
+            pass
+
+        try:
+            model = mlflow.sklearn.load_model(f"runs:/{run_id}/model")
+            return model, run_id
+        except Exception as e:
+            last_error = e
+
+    raise FileNotFoundError(
+        "Random Forest 모델 아티팩트를 찾지 못했습니다. "
+        "MLflow 서버 아티팩트(run artifact_uri=mlflow-artifacts:/...)가 있는 새 run을 생성하세요. "
+        f"(last_error: {last_error})"
+    )
 
 
 @st.cache_resource
 def get_logistic_model_mlflow():
     import joblib
-    from models.logistic import MODEL_PATH
 
     mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
     client = mlflow.tracking.MlflowClient()
@@ -315,6 +332,8 @@ def get_logistic_model_mlflow():
     last_error = None
     for run in runs:
         run_id = run.info.run_id
+        if not str(run.info.artifact_uri).startswith("mlflow-artifacts:"):
+            continue
 
         try:
             top_arts = client.list_artifacts(run_id)
@@ -338,28 +357,16 @@ def get_logistic_model_mlflow():
             except Exception as e:
                 last_error = e
 
-    if os.path.exists(MODEL_PATH):
-        model = joblib.load(MODEL_PATH)
-        return model, "local_model_file"
-
     raise FileNotFoundError(
         "Logistic 모델 아티팩트를 찾지 못했습니다. "
-        "MLflow run에 artifact가 없고 로컬 모델 파일도 없습니다. "
-        "먼저 `python src/models/logistic.py`를 실행하세요. "
+        "MLflow 서버 아티팩트(run artifact_uri=mlflow-artifacts:/...)가 있는 새 run을 생성하세요. "
         f"(last_error: {last_error})"
     )
 
 
 @st.cache_resource
 def get_xgboost_model_mlflow():
-    import joblib
     from models.xgboost import EXPERIMENT as XGB_EXPERIMENT
-    from models.xgboost import MODEL_PATH
-
-    # 로컬 모델 우선 (빠름)
-    if os.path.exists(MODEL_PATH):
-        model = joblib.load(MODEL_PATH)
-        return model, "local_model_file"
 
     mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
     client = mlflow.tracking.MlflowClient()
@@ -385,6 +392,14 @@ def get_xgboost_model_mlflow():
     last_error = None
     for run in runs:
         run_id = run.info.run_id
+        if not str(run.info.artifact_uri).startswith("mlflow-artifacts:"):
+            continue
+        try:
+            arts = client.list_artifacts(run_id)
+            if not arts:
+                continue
+        except Exception:
+            pass
         try:
             model = mlflow.xgboost.load_model(f"runs:/{run_id}/model")
             return model, run_id
@@ -393,6 +408,7 @@ def get_xgboost_model_mlflow():
 
     raise FileNotFoundError(
         "XGBoost 모델 아티팩트를 찾지 못했습니다. "
+        "MLflow 서버 아티팩트(run artifact_uri=mlflow-artifacts:/...)가 있는 새 run을 생성하세요. "
         f"(last_error: {last_error})"
     )
 
@@ -628,7 +644,7 @@ def render_xgb_input_form(df_ref: pd.DataFrame, defaults: dict, form_key: str):
         st.markdown("#### 저장 옵션")
         save_prediction = st.checkbox("예측 결과 저장", value=False, key=f"{form_key}_save")
         user_id_text = st.text_input("학생 ID (선택, 숫자만)", value="", key=f"{form_key}_student_id")
-        submitted = st.form_submit_button("예측 실행", use_container_width=True)
+        submitted = st.form_submit_button("예측 실행", width="stretch")
 
     return submitted, row_dict, save_prediction, user_id_text
 
@@ -930,7 +946,7 @@ def render_input_form(df_ref: pd.DataFrame, defaults: dict, form_key: str):
         st.markdown("#### 저장 옵션")
         save_prediction = st.checkbox("예측 결과 저장", value=False, key=f"{form_key}_save")
         user_id_text = st.text_input("학생 ID (선택, 숫자만)", value="", key=f"{form_key}_student_id")
-        submitted = st.form_submit_button("예측 실행", use_container_width=True)
+        submitted = st.form_submit_button("예측 실행", width="stretch")
 
     return submitted, row_dict, save_prediction, user_id_text
 
@@ -1188,7 +1204,7 @@ with tab_analysis:
             st.markdown("<div class='section-card'>", unsafe_allow_html=True)
             st.subheader("모델별 성능 비교")
             score_df = pd.DataFrame(rows).sort_values("AUC", ascending=False).set_index("모델")
-            st.dataframe(score_df, use_container_width=True)
+            st.dataframe(score_df, width="stretch")
             st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='section-card'>", unsafe_allow_html=True)
@@ -1204,7 +1220,7 @@ with tab_analysis:
             title="이탈 확률 분포",
         )
         fig_prob.update_layout(xaxis_title="이탈 확률", yaxis_title="학생 수")
-        st.plotly_chart(fig_prob, use_container_width=True)
+        st.plotly_chart(fig_prob, width="stretch")
     with cb:
         pred_counts = (
             df["predicted"]
@@ -1224,7 +1240,7 @@ with tab_analysis:
             title="예측 결과 분포",
         )
         fig_pred.update_traces(textposition="outside")
-        st.plotly_chart(fig_pred, use_container_width=True)
+        st.plotly_chart(fig_pred, width="stretch")
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<div class='section-card'>", unsafe_allow_html=True)
@@ -1270,6 +1286,6 @@ with tab_analysis:
             title=f"{display_col}별 이탈 예측 비율",
         )
         fig_group.update_traces(textposition="outside")
-        st.plotly_chart(fig_group, use_container_width=True)
-        st.dataframe(group_df, use_container_width=True)
+        st.plotly_chart(fig_group, width="stretch")
+        st.dataframe(group_df, width="stretch")
     st.markdown("</div>", unsafe_allow_html=True)

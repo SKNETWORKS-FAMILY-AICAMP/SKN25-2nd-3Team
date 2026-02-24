@@ -25,7 +25,7 @@ load_dotenv()
 # ================================
 # 상수
 # ================================
-EXPERIMENT   = 'random-forest-prediction'
+EXPERIMENT   = 'random-forest-prediction-v2'
 MODEL_NAME   = 'random_forest'
 MODEL_PATH   = os.path.join(os.path.dirname(__file__), '..', '..', 'outputs', 'random_forest_model.pkl')
 RANDOM_STATE = 42

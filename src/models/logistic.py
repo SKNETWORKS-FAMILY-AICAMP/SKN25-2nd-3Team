@@ -34,7 +34,7 @@ load_dotenv()
 # ================================
 # 상수
 # ================================
-EXPERIMENT   = 'student_dropout_logistic'
+EXPERIMENT   = 'student_dropout_logistic_v2'
 MODEL_NAME   = 'logistic_dropout'
 MODEL_PATH   = os.path.join(os.path.dirname(__file__), '..', '..', 'outputs', 'logistic_model.pkl')
 RANDOM_STATE = 42
