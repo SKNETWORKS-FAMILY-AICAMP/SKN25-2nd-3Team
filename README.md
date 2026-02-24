@@ -94,6 +94,27 @@ python scripts/init_db.py
 
 ---
 
+## PyTorch (TabNet) Platform Guide
+
+TabNet 학습을 로컬에서 실행할 때는 OS/가속기 환경에 맞춰 PyTorch를 설치하세요.
+
+- Windows + NVIDIA (CUDA):
+```bash
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+pip install pytorch-tabnet
+```
+
+- Apple Silicon (M1/M2/M3):
+```bash
+pip install torch torchvision torchaudio
+pip install pytorch-tabnet
+```
+
+참고:
+- Docker 컨테이너 기준 기본 의존성은 `docker_env/requirements.txt`에서 관리됩니다.
+
+---
+
 ## Model Training & Logging
 
 각 모델 스크립트 실행 시 학습 + MLflow 로깅 + `predictions` 테이블 적재를 수행합니다.
