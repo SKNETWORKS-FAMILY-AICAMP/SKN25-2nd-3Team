@@ -9,6 +9,7 @@ import pandas as pd
 import torch
 import mlflow
 from dotenv import load_dotenv
+from sqlalchemy import text
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, OrdinalEncoder
 from sklearn.metrics import (
@@ -37,7 +38,7 @@ EDUCATION_ORDER = [
 CAT_COLS = ["region", "code_module", "code_presentation",
             "highest_education", "imd_band", "age_band"]
 
-MODEL_PATH     = "outputs/tabnet_model"
+MODEL_PATH     = os.path.join(os.path.dirname(__file__), '..', '..', 'outputs', 'tabnet_model')
 MLFLOW_EXPERIMENT = "tabnet-dropout-prediction"
 RUN_NAME       = "tabnet"
 TEST_SIZE      = 0.2
@@ -150,6 +151,9 @@ def train(engine):
         "probability": y_prob,
         "run_id":     run_id,
     })
+    with engine.connect() as conn:
+        conn.execute(text("DELETE FROM predictions WHERE model_name = 'tabnet'"))
+        conn.commit()
     predictions_df.to_sql("predictions", engine, if_exists="append", index=False)
     print(f"predictions 저장 완료: {len(predictions_df)}건")
 

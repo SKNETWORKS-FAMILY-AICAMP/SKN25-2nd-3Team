@@ -1,6 +1,6 @@
 """
 Logistic Regression 이탈 예측 모델
-Student Dropout — Logistic Regression + MLflow
+- train(engine) : 학습 + MLflow 로깅 + predictions 저장
 """
 import os
 import warnings
@@ -10,6 +10,8 @@ import joblib
 import tempfile
 import pandas as pd
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 from dotenv import load_dotenv
@@ -23,20 +25,18 @@ from sklearn.metrics import (
     accuracy_score, f1_score, precision_score, recall_score,
     roc_auc_score, confusion_matrix,
 )
-from sqlalchemy import create_engine
 import mlflow
 import mlflow.sklearn
+from sqlalchemy import text
 
 load_dotenv()
 
-# ── 설정 ────────────────────────────────────────────────
-DB_URI = (
-    f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-    f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
-)
-MLFLOW_URI  = os.getenv('MLFLOW_TRACKING_URI')
-EXPERIMENT  = 'student_dropout_logistic'
-MODEL_NAME  = 'logistic_dropout'
+# ================================
+# 상수
+# ================================
+EXPERIMENT   = 'student_dropout_logistic'
+MODEL_NAME   = 'logistic_dropout'
+MODEL_PATH   = os.path.join(os.path.dirname(__file__), '..', '..', 'outputs', 'logistic_model.pkl')
 RANDOM_STATE = 42
 TEST_SIZE    = 0.2
 
@@ -44,20 +44,13 @@ ORDINAL_FEATURES = ['imd_band', 'age_band', 'highest_education']
 NOMINAL_FEATURES = ['region', 'code_module', 'code_presentation']
 BINARY_FEATURES  = ['gender', 'disability']
 
-IMD_ORDER = [
-    '0-10%', '10-20%', '20-30%', '30-40%', '40-50%',
-    '50-60%', '60-70%', '70-80%', '80-90%', '90-100%',
+ORDINAL_CATEGORIES = [
+    ['0-10%', '10-20%', '20-30%', '30-40%', '40-50%',
+     '50-60%', '60-70%', '70-80%', '80-90%', '90-100%'],
+    ['0-35', '35-55', '55<='],
+    ['No Formal Quals', 'Lower Than A Level', 'A Level or Equivalent',
+     'HE Qualification', 'Post Graduate Qualification'],
 ]
-AGE_ORDER = ['0-35', '35-55', '55<=']
-EDU_ORDER = [
-    'No Formal Quals',
-    'Lower Than A Level',
-    'A Level or Equivalent',
-    'HE Qualification',
-    'Post Graduate Qualification',
-]
-
-ORDINAL_CATEGORIES = [IMD_ORDER, AGE_ORDER, EDU_ORDER]
 
 LR_PARAMS = {
     'solver':       'liblinear',
@@ -65,25 +58,20 @@ LR_PARAMS = {
     'class_weight': 'balanced',
     'C':            0.5,
 }
-# ────────────────────────────────────────────────────────
 
 
-def load_data(engine):
-    df = pd.read_sql('SELECT * FROM students', engine)
-    print(f'students : {df.shape}')
-    return df
-
-
-def preprocess_base(df):
+# ================================
+# 전처리
+# ================================
+def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df['gender']     = df['gender'].map({'M': 1, 'F': 0})
     df['disability'] = df['disability'].map({'Y': 1, 'N': 0})
     df['dropout']    = df['dropout'].astype(int)
-    df = df.drop(columns=['id_student'])
     return df
 
 
-def build_pipeline(X):
+def build_pipeline(X: pd.DataFrame) -> Pipeline:
     used = set(ORDINAL_FEATURES + NOMINAL_FEATURES + BINARY_FEATURES)
     numeric_features = [c for c in X.columns if c not in used]
 
@@ -107,24 +95,28 @@ def build_pipeline(X):
         sparse_threshold=1.0,
     )
 
-    pipeline = Pipeline([
+    return Pipeline([
         ('preprocess', preprocessor),
         ('model', LogisticRegression(**LR_PARAMS)),
     ])
-    return pipeline
 
 
-def train():
-    engine = create_engine(DB_URI)
+# ================================
+# 학습
+# ================================
+def train(engine):
+    df = pd.read_sql('SELECT * FROM students', engine)
+    print(f'students : {df.shape}')
 
-    df = load_data(engine)
-    df = preprocess_base(df)
+    id_arr = df['id_student'].values
 
-    X = df.drop(columns=['dropout'])
+    df = preprocess(df)
+    X = df.drop(columns=['id_student', 'dropout'])
     y = df['dropout']
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=TEST_SIZE, stratify=y, random_state=RANDOM_STATE,
+    X_train, X_test, y_train, y_test, idx_train, idx_test = train_test_split(
+        X, y, X.index,
+        test_size=TEST_SIZE, stratify=y, random_state=RANDOM_STATE,
     )
     print(f'Train: {len(X_train):,}  |  Test: {len(X_test):,}')
 
@@ -159,10 +151,14 @@ def train():
     plt.close()
 
     # MLflow 로깅
-    mlflow.set_tracking_uri(MLFLOW_URI)
+    mlflow.set_tracking_uri(os.getenv('MLFLOW_TRACKING_URI'))
     mlflow.set_experiment(EXPERIMENT)
 
-    with mlflow.start_run(run_name='logreg-final'):
+    # 로컬 모델 저장 (Streamlit fallback 용도)
+    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+    joblib.dump(pipeline, MODEL_PATH)
+
+    with mlflow.start_run(run_name='logreg') as run:
         mlflow.log_params(LR_PARAMS)
         mlflow.log_metrics(metrics)
         mlflow.log_artifact('outputs/logistic/confusion_matrix.png')
@@ -172,11 +168,35 @@ def train():
             joblib.dump(pipeline, model_path)
             mlflow.log_artifact(model_path, artifact_path='model')
 
-        run_id = mlflow.active_run().info.run_id
-        print(f'MLflow run_id: {run_id}')
+        run_id = run.info.run_id
 
-    return pipeline
+    print(f'MLflow run_id: {run_id}')
+
+    # predictions 테이블 저장
+    predictions_df = pd.DataFrame({
+        'id_student': id_arr[idx_test],
+        'model_name': MODEL_NAME,
+        'predicted':  y_pred,
+        'probability': y_prob,
+        'run_id':     run_id,
+    })
+    with engine.connect() as conn:
+        conn.execute(text("DELETE FROM predictions WHERE model_name = :name"), {"name": MODEL_NAME})
+        conn.commit()
+    predictions_df.to_sql('predictions', engine, if_exists='append', index=False)
+    print(f'predictions 저장 완료: {len(predictions_df)}건')
+
+    return run_id
 
 
+# ================================
+# 직접 실행 시 학습
+# ================================
 if __name__ == '__main__':
-    train()
+    from sqlalchemy import create_engine
+
+    engine = create_engine(
+        f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
+        f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+    )
+    train(engine)

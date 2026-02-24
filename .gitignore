@@ -30,6 +30,7 @@ data.md
 outputs/*.pt
 outputs/*.pth
 outputs/*.zip
+outputs/*.pkl
 
 
 # ================================
